@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeOperators #-}
+
 data a :/\: b = a :/\: b
 data a :\/: b = L a | R b
 
@@ -6,7 +7,7 @@ data False
 type Not a = a -> False
 
 data a :<->: b = Bi {
-  forward :: (a -> b),
+  forward  :: (a -> b),
   backward :: (b -> a)
 }
 
@@ -20,50 +21,58 @@ and_commute :: a :/\: b -> b :/\: a
 and_commute (p :/\: q) = (q :/\: p)
 
 or_commute :: a :\/: b -> b :\/: a
-or_commute (L p) = R p
-or_commute (R q) = L q
+or_commute (L a) = R a
+or_commute (R a) = L a
 
 and_assoc :: a :/\: (b :/\: c) -> (a :/\: b) :/\: c
-and_assoc (p :/\: (q :/\: r)) = (p :/\: q) :/\: r
+and_assoc (a :/\: (b :/\: c)) = (a :/\: b) :/\: c
 
 or_assoc :: a :\/: (b :\/: c) -> (a :\/: b) :\/: c
-or_assoc (L p) = L (L p)
-or_assoc (R (L q)) = L (R q)
-or_assoc (R (R r)) = R r
+or_assoc (R (R c)) = R c
+or_assoc (R (L b)) = L (R b)
+or_assoc (L a)     = L (L a)
 
 modus_ponens :: a -> (a -> b) -> b
-modus_ponens p f = f p
+modus_ponens a f = f a
 
 and_idempotent :: a :/\: a -> a
-and_idempotent (p :/\: _) = p 
+and_idempotent (a :/\: _) = a
 
 or_idempotent :: a :\/: a -> a
-or_idempotent (L p) = p
-or_idempotent (R p) = p
+or_idempotent (L a) = a
+or_idempotent (R a) = a
 
 and_distributes :: a :/\: (b :\/: c) -> (a :/\: b) :\/: (a :/\: c)
-and_distributes (p :/\: L q) = L (p :/\: q)
-and_distributes (p :/\: R r) = R (p :/\: r)
+and_distributes (a :/\: (L b)) = L (a :/\: b)
+and_distributes (a :/\: (R c)) = R (a :/\: c)
 
 or_distributes :: a :\/: (b :/\: c) -> (a :\/: b) :/\: (a :\/: c)
-or_distributes (L p)          = L p :/\: L p
-or_distributes (R (q :/\: r)) = R q :/\: R r
+or_distributes (L a)          = (L a) :/\: (L a)
+or_distributes (R (b :/\: c)) = (R b) :/\: (R c)
 
-contrapositive :: (a -> b) -> (Not b -> Not a)
+contrapositive :: (a -> b) -> Not b -> Not a
 contrapositive f g = g . f
 
+-- demorgan1 :: (a -> False) :\/: (b -> False) -> (a :/\: b) -> False
+-- andys:
+-- demorgan1 (L f) (a :/\: b) = f a
+-- demorgan1 (R g) (a :/\: b) = g b
 demorgan1 :: Not a :\/: Not b -> Not (a :/\: b)
-demorgan1 (L f) (p :/\: q) = f p
-demorgan1 (R g) (p :/\: q) = g q
+-- noons:
+demorgan1 (L f) = f . lhs
+demorgan1 (R g) = g . rhs
+
 
 demorgan2a :: Not a :/\: Not b -> Not (a :\/: b)
-demorgan2a (f :/\: g) (L p) = f p
-demorgan2a (f :/\: g) (R q) = g q
+demorgan2a (f :/\: _) (L a) = f a
+demorgan2a (_ :/\: g) (R b) = g b
 
 demorgan2b :: Not (a :\/: b) -> Not a :/\: Not b
+-- demorgan2b :: ((a :\/: b) -> False) -> (a -> False) :/\: (b -> False)
 demorgan2b f = (f . L) :/\: (f . R)
 
 demorgan2 :: Not a :/\: Not b :<->: Not (a :\/: b)
+-- demorgan2 :: (a -> False) :/\: (b -> False) :<->: ((a :\/: b) -> False)
 demorgan2 = Bi { forward = demorgan2a, backward = demorgan2b }
 
 data Scottish    = Scottish
@@ -92,7 +101,9 @@ no_true_scottsman
     lemma1 = rhs . rule5 . rule6
 
     lemma2 :: Scottish -> Not GoOutSunday
-    lemma2 = rule3 . lemma1
+    -- lemma2 = rule3 . lemma1
+    -- Noons:
+    lemma2 = const $ contrapositive (backward rule4) lemma4
 
     lemma3 :: Scottish -> GoOutSunday
     lemma3 = forward rule4
@@ -105,18 +116,23 @@ no_true_scottsman
 
     lemma6 :: WearKilt :\/: False
     lemma6 = case rule2 of
-      L kilt -> L kilt
-      R f    -> R (f lemma5)
+                    L w -> L w
+                    R f -> R (f lemma5)
 
     lemma7 :: Not WearKilt -> False
-    lemma7 f = case lemma6 of
-      L kilt  -> f kilt
-      R false -> false
+    lemma7 = case lemma6 of
+                    L k -> modus_ponens k
+                    R f -> const f
 
+    -- lemma8 :: (Scottish -> False) -> (WearKilt -> False)
+    -- lemma8 :: (Scottish -> False) -> WearKilt -> False
     lemma8 :: Not Scottish -> Not WearKilt
+    -- lemma8 f kilt = modus_ponens (lhs (rule5 kilt)) f
     lemma8 f kilt = f (lhs (rule5 kilt))
 
     lemma9 :: Not Scottish -> False
     lemma9 = lemma7 . lemma8
 
     in lemma9 lemma4
+
+
